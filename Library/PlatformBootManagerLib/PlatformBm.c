@@ -39,6 +39,8 @@
 
 #include "PlatformBm.h"
 
+VOID EFIAPI EfiBootManagerConnectAllConsoles(VOID);
+
 #define DP_NODE_LEN(Type)                                                      \
   {                                                                            \
     (UINT8)sizeof(Type), (UINT8)(sizeof(Type) >> 8)                            \
@@ -52,8 +54,8 @@
                          purposes. It must never be NULL.
 
   @retval TRUE   The condition is satisfied.
-  @retval FALSE  Otherwise. This includes the case when the condition could not
-                 be fully evaluated due to an error.
+  @retval FALSE  Otherwise. This includes the case when the condition could
+not be fully evaluated due to an error.
 **/
 typedef BOOLEAN(EFIAPI *FILTER_FUNCTION)(
     IN EFI_HANDLE Handle, IN CONST CHAR16 *ReportText);
@@ -103,7 +105,7 @@ VOID FilterAndProcess(
 
   ASSERT(NoHandles > 0);
   for (Idx = 0; Idx < NoHandles; ++Idx) {
-    CHAR16 *DevicePathText;
+    CHAR16 *      DevicePathText;
     STATIC CHAR16 Fallback[] = L"<device path unavailable>";
 
     //
@@ -266,11 +268,13 @@ VOID PlatformRegisterOptionsAndKeys(VOID)
   ShellOption = PlatformRegisterFvBootOption(
       &gUefiShellFileGuid, L"UEFI Shell", LOAD_OPTION_ACTIVE);
 
-  VolUpBtn.ScanCode    = SCAN_UP;
-  VolUpBtn.UnicodeChar = SCAN_UP;
-  Status =
-      EfiBootManagerAddKeyOptionVariable(NULL, ShellOption, 0, &VolUpBtn, NULL);
-  ASSERT(Status == EFI_SUCCESS || Status == EFI_ALREADY_STARTED);
+  if (ShellOption != -1) {
+    VolUpBtn.ScanCode    = SCAN_UP;
+    VolUpBtn.UnicodeChar = SCAN_UP;
+    Status               = EfiBootManagerAddKeyOptionVariable(
+        NULL, ShellOption, 0, &VolUpBtn, NULL);
+    ASSERT(Status == EFI_SUCCESS || Status == EFI_ALREADY_STARTED);
+  }
 }
 
 STATIC
@@ -347,12 +351,6 @@ VOID EFIAPI PlatformBootManagerBeforeConsole(VOID)
   FilterAndProcess(&gEfiGraphicsOutputProtocolGuid, NULL, AddOutput);
 
   //
-  // Add touch screen to ConIn
-  //
-  EfiBootManagerUpdateConsoleVariable(
-      ConIn, (EFI_DEVICE_PATH_PROTOCOL *)&TouchDxeDevicePath, NULL);
-
-  //
   // Now add the device path of all handles with QcomKeypadDeviceProtocolGuid
   // on them to ConIn.
   //
@@ -394,6 +392,7 @@ VOID EFIAPI PlatformBootManagerAfterConsole(VOID)
   // Connect the rest of the devices.
   //
   EfiBootManagerConnectAll();
+  EfiBootManagerConnectAllConsoles();
 
   Status = gBS->LocateProtocol(
       &gEsrtManagementProtocolGuid, NULL, (VOID **)&EsrtManagement);
@@ -444,3 +443,11 @@ VOID EFIAPI PlatformBootManagerWaitCallback(UINT16 TimeoutRemain)
     Print(L".");
   }
 }
+
+/**
+  The function is called when no boot option could be launched,
+  including platform recovery options and options pointing to applications
+  built into firmware volumes.
+  If this function returns, BDS attempts to enter an infinite loop.
+**/
+VOID EFIAPI PlatformBootManagerUnableToBoot(VOID) { return; }

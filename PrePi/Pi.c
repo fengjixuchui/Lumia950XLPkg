@@ -59,9 +59,6 @@ VOID Main(IN VOID *StackBase, IN UINTN StackSize, IN UINT64 StartTimeStamp)
   /* Enable program flow prediction, if supported */
   ArmEnableBranchPrediction();
 
-  // Clear FB
-  ResetFb();
-
   // Initialize (fake) UART.
   UartInit();
 
@@ -113,7 +110,7 @@ VOID Main(IN VOID *StackBase, IN UINTN StackSize, IN UINT64 StartTimeStamp)
   BuildStackHob((UINTN)StackBase, StackSize);
 
   // TODO: Call CpuPei as a library
-  BuildCpuHob(PcdGet8(PcdPrePiCpuMemorySize), PcdGet8(PcdPrePiCpuIoSize));
+  BuildCpuHob(40, PcdGet8(PcdPrePiCpuIoSize));
 
   // Set the Boot Mode
   SetBootMode(BOOT_WITH_FULL_CONFIGURATION);
